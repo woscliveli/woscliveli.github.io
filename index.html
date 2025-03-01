@@ -25,11 +25,23 @@
       <button @click="addParticipant" class="bg-green-500 text-white px-3 py-1 rounded-lg w-full">添加</button>
       
       <ul class="mt-4">
-        <li v-for="(p, index) in participants" :key="index" class="flex justify-between items-center p-2 border-b">
-          <span>{{ p.name }} - 出发时间: {{ getDepartureTime(p.seconds) }} 秒</span>
-          <div class="flex items-center">
-            <input @input="updateSeconds($event, index)" @blur="sortParticipants" :value="p.seconds" type="number" class="border p-1 w-16 text-center mr-2" />
-            <button @click="removeParticipant(index)" class="bg-red-500 text-white px-2 py-1 rounded-lg">删除</button>
+        <li v-for="(p, index) in participants" :key="index" class="mb-3">
+          <div class="flex justify-between items-center mb-1">
+            <span>{{ p.name }} - 出发时间: {{ getDepartureTime(p) }} 秒</span>
+            <div class="flex items-center">
+              <input @input="updateSeconds($event, index)" @blur="sortParticipants" :value="p.seconds" type="number" class="border p-1 w-16 text-center mr-2" />
+              <button @click="toggleZeroDeparture(index)" class="bg-yellow-500 text-white px-2 py-1 rounded-lg mr-2">
+                {{ p.zeroDeparture ? '取消0秒出发' : '设为0秒出发' }}
+              </button>
+              <button @click="removeParticipant(index)" class="bg-red-500 text-white px-2 py-1 rounded-lg">删除</button>
+            </div>
+          </div>
+          <!-- 进度条 -->
+          <div class="w-full bg-gray-200 rounded-full h-2.5">
+            <div
+              class="bg-blue-500 h-2.5 rounded-full"
+              :style="{ width: getProgressBarWidth(p) + '%' }"
+            ></div>
           </div>
         </li>
       </ul>
@@ -65,9 +77,10 @@
         }
       },
       watch: {
-        // 监听 startSeconds 和 participants 的变化，保存到 localStorage
+        // 监听 startSeconds 的变化，保存到 localStorage 并重新计算出发时间
         startSeconds(newVal) {
           this.saveData();
+          this.sortParticipants(); // 重新排序，确保出发时间正确
         },
         participants: {
           handler(newVal) {
@@ -90,9 +103,10 @@
         },
         addParticipant() {
           if (this.newName && this.newSeconds > 0) {
-            this.participants.push({ name: this.newName, seconds: this.newSeconds });
+            this.participants.push({ name: this.newName, seconds: this.newSeconds, zeroDeparture: false });
             this.newName = "";
             this.newSeconds = "";
+            this.sortParticipants(); // 添加新参与者后重新排序
           }
         },
         updateSeconds(event, index) {
@@ -102,11 +116,21 @@
           }
         },
         sortParticipants() {
-          this.participants.sort((a, b) => this.getDepartureTime(a.seconds) - this.getDepartureTime(b.seconds));
+          this.participants.sort((a, b) => this.getDepartureTime(a) - this.getDepartureTime(b));
         },
-        getDepartureTime(userSeconds) {
+        getDepartureTime(p) {
+          if (p.zeroDeparture) {
+            return 0; // 如果标记为0秒出发，则出发时间为0
+          }
+          // 找到被标记为0秒出发的参与者
+          const zeroDepartureParticipant = this.participants.find(p => p.zeroDeparture);
+          if (zeroDepartureParticipant) {
+            // 基于0秒出发的参与者计算其他参与者的出发时间
+            return zeroDepartureParticipant.seconds - p.seconds;
+          }
+          // 如果没有0秒出发的参与者，按原来的逻辑计算
           const maxSeconds = this.participants.length > 0 ? Math.max(...this.participants.map(p => p.seconds)) : 0;
-          return maxSeconds - userSeconds;
+          return maxSeconds - p.seconds;
         },
         saveData() {
           // 保存数据到 localStorage
@@ -119,6 +143,24 @@
         removeParticipant(index) {
           // 删除指定索引的参与者
           this.participants.splice(index, 1);
+        },
+        toggleZeroDeparture(index) {
+          // 取消其他参与者的0秒出发标记
+          this.participants.forEach((p, i) => {
+            if (i !== index) {
+              p.zeroDeparture = false;
+            }
+          });
+          // 切换当前参与者的0秒出发标记
+          this.participants[index].zeroDeparture = !this.participants[index].zeroDeparture;
+          this.sortParticipants(); // 重新排序
+        },
+        getProgressBarWidth(p) {
+          const departureTime = this.getDepartureTime(p);
+          const totalTime = departureTime - this.startSeconds; // 总时间 = 出发时间 - 计时开始秒数
+          const elapsedTime = this.countdown - this.startSeconds; // 已过时间 = 当前计时器值 - 计时开始秒数
+          const progress = (elapsedTime / totalTime) * 100; // 进度 = 已过时间 / 总时间
+          return Math.min(100, Math.max(0, progress)); // 确保进度条在 0% 到 100% 之间
         }
       }
     }).mount("#app");
