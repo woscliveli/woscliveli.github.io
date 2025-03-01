@@ -25,9 +25,12 @@
       <button @click="addParticipant" class="bg-green-500 text-white px-3 py-1 rounded-lg w-full">添加</button>
       
       <ul class="mt-4">
-        <li v-for="(p, index) in participants" :key="index" class="flex justify-between p-2 border-b">
+        <li v-for="(p, index) in participants" :key="index" class="flex justify-between items-center p-2 border-b">
           <span>{{ p.name }} - 出发时间: {{ getDepartureTime(p.seconds) }} 秒</span>
-          <input @input="updateSeconds($event, index)" @blur="sortParticipants" :value="p.seconds" type="number" class="border p-1 w-16 text-center" />
+          <div class="flex items-center">
+            <input @input="updateSeconds($event, index)" @blur="sortParticipants" :value="p.seconds" type="number" class="border p-1 w-16 text-center mr-2" />
+            <button @click="removeParticipant(index)" class="bg-red-500 text-white px-2 py-1 rounded-lg">删除</button>
+          </div>
         </li>
       </ul>
     </div>
@@ -112,6 +115,10 @@
             participants: this.participants
           };
           localStorage.setItem('appData', JSON.stringify(appData));
+        },
+        removeParticipant(index) {
+          // 删除指定索引的参与者
+          this.participants.splice(index, 1);
         }
       }
     }).mount("#app");
