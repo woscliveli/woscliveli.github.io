@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>集结计时页面</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-5">
+  <div id="app" class="flex flex-col h-screen items-center justify-center">
+    <!-- 计时器和开始/停止按钮 -->
+    <div class="w-full flex flex-col items-center mb-5">
+      <div class="text-6xl font-bold mb-5">{{ countdown }}</div>
+      <button @click="toggleCountdown" class="w-32 h-32 text-white rounded-full text-xl font-bold flex items-center justify-center shadow-lg" :class="timer ? 'bg-red-500' : 'bg-blue-500'">
+        {{ timer ? '停止' : '开始' }}
+      </button>
+    </div>
+    
+    <!-- 参与者输入框 -->
+    <div class="w-full max-w-md bg-white p-5 shadow-lg rounded-lg mb-5">
+      <h2 class="text-xl font-bold mb-3">添加参与者</h2>
+      <input v-model="newName" placeholder="昵称" class="border p-2 w-full mb-2" />
+      <input v-model.number="newSeconds" type="number" placeholder="所需秒数" class="border p-2 w-full mb-2" />
+      <button @click="addParticipant" class="bg-green-500 text-white px-3 py-1 rounded-lg w-full">添加</button>
+      
+      <ul class="mt-4">
+        <li v-for="(p, index) in participants" :key="index" class="flex justify-between p-2 border-b">
+          <span>{{ p.name }} - 出发时间: {{ getDepartureTime(p.seconds) }} 秒</span>
+          <input @input="updateSeconds($event, index)" @blur="sortParticipants" :value="p.seconds" type="number" class="border p-1 w-16 text-center" />
+        </li>
+      </ul>
+    </div>
+    
+    <!-- 计时设置 -->
+    <div class="w-full max-w-md bg-white p-3 shadow-md rounded-lg">
+      <label class="block mb-1">计时开始秒数：</label>
+      <input v-model.number="startSeconds" type="number" class="border p-1 w-full" />
+    </div>
+  </div>
+
+  <script>
+    const { createApp } = Vue;
+    createApp({
+      data() {
+        return {
+          startSeconds: -5,
+          countdown: 0,
+          timer: null,
+          newName: "",
+          newSeconds: "",
+          participants: []
+        };
+      },
+      created() {
+        // 从 localStorage 加载数据
+        const savedData = localStorage.getItem('appData');
+        if (savedData) {
+          const { startSeconds, participants } = JSON.parse(savedData);
+          this.startSeconds = startSeconds;
+          this.participants = participants;
+        }
+      },
+      watch: {
+        // 监听 startSeconds 和 participants 的变化，保存到 localStorage
+        startSeconds(newVal) {
+          this.saveData();
+        },
+        participants: {
+          handler(newVal) {
+            this.saveData();
+          },
+          deep: true
+        }
+      },
+      methods: {
+        toggleCountdown() {
+          if (this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+          } else {
+            this.countdown = this.startSeconds;
+            this.timer = setInterval(() => {
+              this.countdown++;
+            }, 1000);
+          }
+        },
+        addParticipant() {
+          if (this.newName && this.newSeconds > 0) {
+            this.participants.push({ name: this.newName, seconds: this.newSeconds });
+            this.newName = "";
+            this.newSeconds = "";
+          }
+        },
+        updateSeconds(event, index) {
+          const value = Number(event.target.value);
+          if (!isNaN(value) && value >= 0) {
+            this.participants[index].seconds = value;
+          }
+        },
+        sortParticipants() {
+          this.participants.sort((a, b) => this.getDepartureTime(a.seconds) - this.getDepartureTime(b.seconds));
+        },
+        getDepartureTime(userSeconds) {
+          const maxSeconds = this.participants.length > 0 ? Math.max(...this.participants.map(p => p.seconds)) : 0;
+          return maxSeconds - userSeconds;
+        },
+        saveData() {
+          // 保存数据到 localStorage
+          const appData = {
+            startSeconds: this.startSeconds,
+            participants: this.participants
+          };
+          localStorage.setItem('appData', JSON.stringify(appData));
+        }
+      }
+    }).mount("#app");
+  </script>
+</body>
+</html>
